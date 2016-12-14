@@ -132,14 +132,7 @@
                 if (!notification)
                     continue;
 
-                //            [self updateNotification:[notification copy]
-                //                         withOptions:options];
-                //
-                //            [self fireEvent:@"update" notification:notification];
-                //
-                //            if (notifications.count > 1) {
-                //                [NSThread sleepForTimeInterval:0.01];
-                //            }
+                [self updateNotification:notification withOptions:options];
             }
         } else {
             for (NSDictionary* options in notifications) {
@@ -612,25 +605,32 @@
 {
     [self.center addNotificationRequest:notification.request
                   withCompletionHandler:^(NSError* e) {
-                      [self fireEvent:@"add" notification:notification.request];
+                      [self fireEvent:@"schedule" notification:notification.request];
                   }];
 }
 
 /**
  * Update the local notification.
  */
-- (void) updateNotification:(UILocalNotification*)notification
+- (void) updateNotification:(UNNotificationRequest*)notificationRequest
                 withOptions:(NSDictionary*)newOptions
 {
-    NSMutableDictionary* options = [notification.userInfo mutableCopy];
-
-    [options addEntriesFromDictionary:newOptions];
-    [options setObject:[NSDate date] forKey:@"updatedAt"];
-
-//    notification = [[UILocalNotification alloc]
-//                    initWithOptions:options];
-//
-//    [self scheduleLocalNotification:notification];
+    // create new notification identified by same id.
+    NSMutableDictionary* mergedOptions = [[NSMutableDictionary alloc]
+                                       initWithDictionary:notificationRequest.content.userInfo];
+    for(NSString* key in newOptions) {
+        [mergedOptions setValue:newOptions[key] forKey:key];
+    }
+    // remove old one, and add new one.
+    [self.center removePendingNotificationRequestsWithIdentifiers:[
+                [NSArray alloc] initWithObjects:notificationRequest.identifier, nil]];
+    
+    UNMutableNotificationContent* notification = [[UNMutableNotificationContent alloc]
+                                                  initWithOptions:mergedOptions];
+    [self.center addNotificationRequest:notification.request
+                  withCompletionHandler:^(NSError* e) {
+                      [self fireEvent:@"update" notification:notification.request];
+                  }];
 }
 
 /**
